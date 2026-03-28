@@ -1,0 +1,152 @@
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 16px;
+	background: #12122a;
+	border-bottom: 1px solid #2a2a4a;
+	flex-shrink: 0;
+	height: 52px;
+	position: relative;
+	z-index: 10;
+}
+
+.toolbar-spacer {
+	width: 48px;
+	flex-shrink: 0;
+}
+
+.toolbar-center {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	justify-content: center;
+}
+
+/* Transport controls */
+.transport-controls {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.transport-btn {
+	width: 34px;
+	height: 34px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid #3a3a5a;
+	border-radius: 8px;
+	background: #1e1e3a;
+	color: #bbb;
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.transport-btn:hover {
+	background: #2a2a4e;
+	border-color: #5a5a8a;
+	color: #fff;
+}
+
+.transport-btn.play {
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	background: #3a5aba;
+	border-color: #4a6aca;
+	color: #fff;
+}
+
+.transport-btn.play:hover {
+	background: #4a6aca;
+	transform: scale(1.05);
+}
+
+/* Seek */
+.seek-section {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+	max-width: 500px;
+	min-width: 0;
+}
+
+.time-label {
+	font-size: 11px;
+	color: #888;
+	font-family: 'Courier New', monospace;
+	min-width: 36px;
+	text-align: center;
+}
+
+.seek-bar {
+	flex: 1;
+	height: 4px;
+	accent-color: #4a9eff;
+	cursor: pointer;
+}
+
+/* Song info */
+.song-info {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 1px;
+	flex-shrink: 0;
+}
+
+.song-name {
+	font-size: 12px;
+	color: #8ab4ff;
+	max-width: 180px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.song-bpm {
+	font-size: 10px;
+	color: #666;
+}
+
+.no-file-hint {
+	font-size: 13px;
+	color: #555;
+}
+
+/* REC badge */
+.rec-badge {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 10px;
+	background: #4a1a1a;
+	border: 1px solid #8a3a3a;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	color: #f88;
+	animation: pulse-red 1.5s ease infinite;
+}
+
+.rec-badge-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: #f44;
+}
+
+@keyframes pulse-red {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(255, 60, 60, 0.3);
+	}
+	50% {
+		box-shadow: 0 0 8px 2px rgba(255, 60, 60, 0.3);
+	}
+}
