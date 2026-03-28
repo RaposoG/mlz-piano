@@ -50,6 +50,8 @@ export interface RecordedNote {
 
 export type LearningMode = 'off' | 'wait' | 'practice';
 
+export type AppView = 'menu' | 'free' | 'learning' | 'library' | 'settings';
+
 // Piano range: A0 (21) to C8 (108) - 88 keys
 export const PIANO_START = 21;
 export const PIANO_END = 108;

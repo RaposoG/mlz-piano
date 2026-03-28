@@ -11,9 +11,78 @@
 	z-index: 10;
 }
 
-.toolbar-spacer {
-	width: 48px;
+/* Back button */
+.toolbar-back {
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.04);
+	color: #94a3b8;
+	cursor: pointer;
+	transition: all 0.15s;
 	flex-shrink: 0;
+}
+
+.toolbar-back:hover {
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff;
+	border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Mode badge */
+.toolbar-mode-badge {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 12px;
+	background: rgba(58, 122, 254, 0.08);
+	border: 1px solid rgba(58, 122, 254, 0.2);
+	border-radius: 8px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #8ab4ff;
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.toolbar-mode-badge[data-mode='learning'] {
+	background: rgba(124, 58, 237, 0.08);
+	border-color: rgba(124, 58, 237, 0.25);
+	color: #a78bfa;
+}
+
+.mode-wait-tag {
+	padding: 1px 6px;
+	background: rgba(124, 58, 237, 0.2);
+	border-radius: 4px;
+	font-size: 10px;
+}
+
+/* Open file button */
+.open-file-btn {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 18px;
+	background: rgba(58, 122, 254, 0.1);
+	border: 1px solid rgba(58, 122, 254, 0.25);
+	border-radius: 10px;
+	color: #8ab4ff;
+	font-size: 13px;
+	font-family: inherit;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.open-file-btn:hover {
+	background: rgba(58, 122, 254, 0.18);
+	border-color: rgba(58, 122, 254, 0.4);
+	color: #fff;
 }
 
 .toolbar-center {
@@ -112,11 +181,6 @@
 .song-bpm {
 	font-size: 10px;
 	color: #666;
-}
-
-.no-file-hint {
-	font-size: 13px;
-	color: #555;
 }
 
 /* REC badge */

@@ -4,26 +4,28 @@ import { Midi } from '@tonejs/midi';
 import Piano from './components/Piano';
 import FallingNotes from './components/FallingNotes';
 import Toolbar from './components/Toolbar';
-import Sidebar from './components/Sidebar';
+import MainMenu from './components/MainMenu';
+import MidiLibrary from './components/MidiLibrary';
+import Settings from './components/Settings';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useMidiInput } from './hooks/useMidiInput';
 import { useRecording } from './hooks/useRecording';
 import { parseMidiFile } from './utils/midiParser';
-import type { MidiFile, MidiNote, ActiveNote, LearningMode } from './types/midi';
+import type { MidiFile, MidiNote, ActiveNote, LearningMode, AppView } from './types/midi';
 import './App.css';
 
 function App() {
+	const [currentView, setCurrentView] = useState<AppView>('menu');
 	const [activeNotes, setActiveNotes] = useState<Map<number, ActiveNote>>(new Map());
 	const [midiFile, setMidiFile] = useState<MidiFile | null>(null);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
-	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const [volume, setVolume] = useState(0.8);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
 	const [learningMode, setLearningMode] = useState<LearningMode>('off');
 	const [trackStates, setTrackStates] = useState<{ name: string; enabled: boolean }[]>([]);
 
-	const { noteOn, noteOff, playNote, setVolume: setAudioVolume } = useAudioEngine();
+	const { noteOn, noteOff, playNote, setVolume: setAudioVolume, setSustain } = useAudioEngine();
 	const { isRecording, recordingDuration, startRecording, stopRecording, recordNoteOn, recordNoteOff, exportMidi } = useRecording();
 
 	const playbackRef = useRef<{
@@ -39,8 +41,6 @@ function App() {
 	const playbackSpeedRef = useRef(1.0);
 	const learningModeRef = useRef<LearningMode>('off');
 	const enabledTracksRef = useRef<Set<number>>(new Set());
-
-	// Learning mode: track next expected notes
 	const waitingForNotesRef = useRef<Set<number>>(new Set());
 
 	currentTimeRef.current = currentTime;
@@ -49,7 +49,6 @@ function App() {
 	playbackSpeedRef.current = playbackSpeed;
 	learningModeRef.current = learningMode;
 
-	// Update enabled tracks ref
 	useEffect(() => {
 		const enabled = new Set<number>();
 		trackStates.forEach((t, i) => {
@@ -58,19 +57,17 @@ function App() {
 		enabledTracksRef.current = enabled;
 	}, [trackStates]);
 
-	// Volume change
 	useEffect(() => {
 		setAudioVolume(volume);
 	}, [volume, setAudioVolume]);
 
-	// Get filtered notes
 	const getFilteredNotes = useCallback((): MidiNote[] => {
 		if (!midiFile) return [];
 		if (trackStates.length === 0) return midiFile.allNotes;
 		return midiFile.allNotes.filter((n) => enabledTracksRef.current.has(n.track));
 	}, [midiFile, trackStates]);
 
-	// MIDI input handlers
+	// --- MIDI input handlers ---
 	const handleMidiNoteOn = useCallback(
 		(midi: number, velocity: number) => {
 			noteOn(midi, velocity);
@@ -80,16 +77,11 @@ function App() {
 				next.set(midi, { midi, velocity, source: 'midi-input' });
 				return next;
 			});
-
-			// Learning mode: check if this note was expected
 			if (learningModeRef.current === 'wait' && waitingForNotesRef.current.size > 0) {
 				waitingForNotesRef.current.delete(midi);
-				// If all expected notes played, resume
 				if (waitingForNotesRef.current.size === 0 && !isPlayingRef.current) {
-					// Resume playback
-					const pb = playbackRef.current;
-					pb.startWallTime = performance.now();
-					pb.startMidiTime = currentTimeRef.current;
+					playbackRef.current.startWallTime = performance.now();
+					playbackRef.current.startMidiTime = currentTimeRef.current;
 					setIsPlaying(true);
 				}
 			}
@@ -103,21 +95,27 @@ function App() {
 			recordNoteOff(midi);
 			setActiveNotes((prev) => {
 				const next = new Map(prev);
-				if (next.get(midi)?.source === 'midi-input') {
-					next.delete(midi);
-				}
+				if (next.get(midi)?.source === 'midi-input') next.delete(midi);
 				return next;
 			});
 		},
 		[noteOff, recordNoteOff],
 	);
 
+	const handleSustain = useCallback(
+		(pressed: boolean) => {
+			setSustain(pressed);
+		},
+		[setSustain],
+	);
+
 	const { devices, connected, connectAll, refreshDevices } = useMidiInput({
 		onNoteOn: handleMidiNoteOn,
 		onNoteOff: handleMidiNoteOff,
+		onSustain: handleSustain,
 	});
 
-	// Mouse piano handlers
+	// --- Mouse piano ---
 	const handlePianoNoteOn = useCallback(
 		(midi: number) => {
 			noteOn(midi, 0.7);
@@ -137,16 +135,23 @@ function App() {
 			recordNoteOff(midi);
 			setActiveNotes((prev) => {
 				const next = new Map(prev);
-				if (next.get(midi)?.source === 'mouse') {
-					next.delete(midi);
-				}
+				if (next.get(midi)?.source === 'mouse') next.delete(midi);
 				return next;
 			});
 		},
 		[noteOff, recordNoteOff],
 	);
 
-	// Load file from file picker
+	// --- File loading ---
+	const loadParsedMidi = useCallback((parsed: MidiFile, targetView: AppView) => {
+		setMidiFile(parsed);
+		setCurrentTime(0);
+		setIsPlaying(false);
+		cancelAnimationFrame(playbackRef.current.animFrame);
+		setTrackStates(parsed.tracks.map((t) => ({ name: t.name, enabled: true })));
+		setCurrentView(targetView);
+	}, []);
+
 	const handleLoadFile = useCallback(() => {
 		const input = document.createElement('input');
 		input.type = 'file';
@@ -156,62 +161,48 @@ function App() {
 			if (!file) return;
 			try {
 				const parsed = await parseMidiFile(file);
-				setMidiFile(parsed);
-				setCurrentTime(0);
-				setIsPlaying(false);
-				cancelAnimationFrame(playbackRef.current.animFrame);
-				setTrackStates(parsed.tracks.map((t) => ({ name: t.name, enabled: true })));
+				loadParsedMidi(parsed, currentView === 'learning' ? 'learning' : 'free');
 			} catch (err) {
 				console.error('Failed to parse MIDI file:', err);
 			}
 		};
 		input.click();
-	}, []);
+	}, [loadParsedMidi, currentView]);
 
-	// Load file from scanned path (via Tauri fs)
-	const handleSelectFile = useCallback(async (path: string) => {
-		try {
-			const data = await readFile(path);
-			const midi = new Midi(data.buffer);
-			const tracks = midi.tracks.map((track, index) => {
-				const notes: MidiNote[] = track.notes.map((note) => ({
-					midi: note.midi,
-					name: note.name,
-					time: note.time,
-					duration: note.duration,
-					velocity: note.velocity,
-					track: index,
-				}));
-				return { name: track.name || `Track ${index + 1}`, notes, instrument: track.instrument?.name || 'Piano' };
-			});
-			const allNotes = tracks.flatMap((t) => t.notes).sort((a, b) => a.time - b.time);
-			const name =
-				path
-					.split(/[\\/]/)
-					.pop()
-					?.replace(/\.mid[i]?$/i, '') || 'Unknown';
-			const parsed: MidiFile = {
-				name,
-				duration: midi.duration,
-				bpm: midi.header.tempos[0]?.bpm ?? 120,
-				tracks,
-				allNotes,
-			};
-			setMidiFile(parsed);
-			setCurrentTime(0);
-			setIsPlaying(false);
-			cancelAnimationFrame(playbackRef.current.animFrame);
-			setTrackStates(parsed.tracks.map((t) => ({ name: t.name, enabled: true })));
-			setSidebarOpen(false);
-		} catch (err) {
-			console.error('Failed to load MIDI from path:', err);
-		}
-	}, []);
+	const handleSelectFile = useCallback(
+		async (path: string) => {
+			try {
+				const data = await readFile(path);
+				const midi = new Midi(data.buffer);
+				const tracks = midi.tracks.map((track, index) => {
+					const notes: MidiNote[] = track.notes.map((note) => ({
+						midi: note.midi,
+						name: note.name,
+						time: note.time,
+						duration: note.duration,
+						velocity: note.velocity,
+						track: index,
+					}));
+					return { name: track.name || `Track ${index + 1}`, notes, instrument: track.instrument?.name || 'Piano' };
+				});
+				const allNotes = tracks.flatMap((t) => t.notes).sort((a, b) => a.time - b.time);
+				const name =
+					path
+						.split(/[\\/]/)
+						.pop()
+						?.replace(/\.mid[i]?$/i, '') || 'Unknown';
+				const parsed: MidiFile = { name, duration: midi.duration, bpm: midi.header.tempos[0]?.bpm ?? 120, tracks, allNotes };
+				loadParsedMidi(parsed, 'free');
+			} catch (err) {
+				console.error('Failed to load MIDI from path:', err);
+			}
+		},
+		[loadParsedMidi],
+	);
 
-	// Playback loop
+	// --- Playback ---
 	const playbackLoop = useCallback(() => {
 		if (!isPlayingRef.current || !midiFileRef.current) return;
-
 		const pb = playbackRef.current;
 		const elapsed = ((performance.now() - pb.startWallTime) / 1000) * playbackSpeedRef.current;
 		const ct = pb.startMidiTime + elapsed;
@@ -228,18 +219,14 @@ function App() {
 			});
 			return;
 		}
-
 		setCurrentTime(ct);
-
 		const enabled = enabledTracksRef.current;
 		const notes = midiFileRef.current.allNotes;
 
-		// Learning "wait" mode: find next notes and pause
 		if (learningModeRef.current === 'wait') {
 			for (const note of notes) {
 				if (!enabled.has(note.track)) continue;
 				if (note.time > ct && note.time <= ct + 0.05) {
-					// Upcoming notes: pause and wait for user to play them
 					waitingForNotesRef.current.add(note.midi);
 				}
 			}
@@ -252,10 +239,8 @@ function App() {
 
 		for (const note of notes) {
 			if (!enabled.has(note.track)) continue;
-
 			const noteKey = `${note.track}-${note.midi}-${note.time.toFixed(4)}`;
 			const noteEnd = note.time + note.duration;
-
 			if (note.time <= ct && noteEnd > ct && !pb.activeFileNotes.has(noteKey)) {
 				pb.activeFileNotes.add(noteKey);
 				playNote(note.midi, note.duration / playbackSpeedRef.current, note.velocity);
@@ -264,20 +249,16 @@ function App() {
 					next.set(note.midi, { midi: note.midi, velocity: note.velocity, source: 'file' });
 					return next;
 				});
-
 				const remainingMs = ((noteEnd - ct) / playbackSpeedRef.current) * 1000;
 				setTimeout(() => {
 					setActiveNotes((prev) => {
 						const next = new Map(prev);
-						if (next.get(note.midi)?.source === 'file') {
-							next.delete(note.midi);
-						}
+						if (next.get(note.midi)?.source === 'file') next.delete(note.midi);
 						return next;
 					});
 				}, remainingMs);
 			}
 		}
-
 		pb.animFrame = requestAnimationFrame(playbackLoop);
 	}, [playNote]);
 
@@ -336,7 +317,21 @@ function App() {
 		setTrackStates((prev) => prev.map((t, i) => (i === index ? { ...t, enabled: !t.enabled } : t)));
 	}, []);
 
-	// Start/stop playback loop
+	// --- Navigation ---
+	const handleNavigate = useCallback((view: AppView) => {
+		if (view === 'learning') {
+			setLearningMode('wait');
+		} else if (view === 'free') {
+			setLearningMode('off');
+		}
+		setCurrentView(view);
+	}, []);
+
+	const handleBackToMenu = useCallback(() => {
+		handleStop();
+		setCurrentView('menu');
+	}, [handleStop]);
+
 	useEffect(() => {
 		if (isPlaying) {
 			playbackRef.current.animFrame = requestAnimationFrame(playbackLoop);
@@ -350,39 +345,51 @@ function App() {
 
 	const filteredNotes = getFilteredNotes();
 
-	return (
-		<div className="app">
-			<Sidebar
-				isOpen={sidebarOpen}
-				onToggle={() => setSidebarOpen(!sidebarOpen)}
-				onSelectFile={handleSelectFile}
-				onLoadFile={handleLoadFile}
-				midiFile={midiFile}
-				midiDevices={devices}
-				midiConnected={connected}
-				onConnectAll={connectAll}
-				onRefreshDevices={refreshDevices}
+	// --- Render views ---
+	if (currentView === 'menu') {
+		return <MainMenu onNavigate={handleNavigate} midiConnected={connected} />;
+	}
+
+	if (currentView === 'library') {
+		return <MidiLibrary onSelectFile={handleSelectFile} onBack={handleBackToMenu} />;
+	}
+
+	if (currentView === 'settings') {
+		return (
+			<Settings
+				onBack={handleBackToMenu}
 				volume={volume}
 				onVolumeChange={setVolume}
 				playbackSpeed={playbackSpeed}
 				onSpeedChange={setPlaybackSpeed}
+				learningMode={learningMode}
+				onLearningModeChange={setLearningMode}
+				midiDevices={devices}
+				midiConnected={connected}
+				onConnectAll={connectAll}
+				onRefreshDevices={refreshDevices}
+				tracks={trackStates}
+				onToggleTrack={handleToggleTrack}
 				isRecording={isRecording}
 				onToggleRecording={isRecording ? stopRecording : startRecording}
 				onExportRecording={exportMidi}
 				recordingDuration={recordingDuration}
-				learningMode={learningMode}
-				onLearningModeChange={setLearningMode}
-				tracks={trackStates}
-				onToggleTrack={handleToggleTrack}
 			/>
-			<Toolbar midiFile={midiFile} isPlaying={isPlaying} currentTime={currentTime} onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onSeek={handleSeek} onRewind={handleRewind} isRecording={isRecording} />
+		);
+	}
+
+	// free / learning view
+	return (
+		<div className="app">
+			<Toolbar midiFile={midiFile} isPlaying={isPlaying} currentTime={currentTime} onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onSeek={handleSeek} onRewind={handleRewind} isRecording={isRecording} onBack={handleBackToMenu} onLoadFile={handleLoadFile} currentView={currentView} learningMode={learningMode} />
 			<div className="falling-notes-area">
 				{midiFile ? (
 					<FallingNotes notes={filteredNotes} currentTime={currentTime} isPlaying={isPlaying} />
 				) : (
 					<div className="empty-state">
-						<p>🎹 MLZ Piano</p>
-						<p className="subtitle">Conecte seu teclado MIDI ou abra um arquivo .mid para começar</p>
+						<p className="empty-icon">🎹</p>
+						<p className="empty-title">{currentView === 'learning' ? 'Modo Aprendizado' : 'Modo Livre'}</p>
+						<p className="subtitle">{currentView === 'learning' ? 'Abra um arquivo MIDI para começar a aprender' : 'Toque livremente ou abra um arquivo MIDI'}</p>
 					</div>
 				)}
 			</div>

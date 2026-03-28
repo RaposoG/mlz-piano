@@ -8,16 +8,18 @@ export interface MidiInputDevice {
 interface UseMidiInputOptions {
 	onNoteOn: (midi: number, velocity: number) => void;
 	onNoteOff: (midi: number) => void;
+	onSustain?: (pressed: boolean) => void;
+	onCC?: (controller: number, value: number) => void;
 }
 
-export function useMidiInput({ onNoteOn, onNoteOff }: UseMidiInputOptions) {
+export function useMidiInput({ onNoteOn, onNoteOff, onSustain, onCC }: UseMidiInputOptions) {
 	const [devices, setDevices] = useState<MidiInputDevice[]>([]);
 	const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
 	const [connected, setConnected] = useState(false);
 	const midiAccessRef = useRef<MIDIAccess | null>(null);
-	const callbacksRef = useRef({ onNoteOn, onNoteOff });
+	const callbacksRef = useRef({ onNoteOn, onNoteOff, onSustain, onCC });
 
-	callbacksRef.current = { onNoteOn, onNoteOff };
+	callbacksRef.current = { onNoteOn, onNoteOff, onSustain, onCC };
 
 	const handleMidiMessage = useCallback((event: MIDIMessageEvent) => {
 		const data = event.data;
@@ -31,6 +33,15 @@ export function useMidiInput({ onNoteOn, onNoteOff }: UseMidiInputOptions) {
 			callbacksRef.current.onNoteOn(note, velocity / 127);
 		} else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
 			callbacksRef.current.onNoteOff(note);
+		} else if (status === 0xb0) {
+			// Control Change
+			const controller = note; // data[1] = controller number
+			const value = velocity; // data[2] = value
+			callbacksRef.current.onCC?.(controller, value);
+			// CC#64 = Sustain Pedal
+			if (controller === 64) {
+				callbacksRef.current.onSustain?.(value >= 64);
+			}
 		}
 	}, []);
 

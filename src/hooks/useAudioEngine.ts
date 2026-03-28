@@ -41,6 +41,8 @@ export function useAudioEngine() {
 	const volumeRef = useRef<Tone.Volume | null>(null);
 	const loadedRef = useRef(false);
 	const activeNotesRef = useRef<Map<number, string>>(new Map());
+	const sustainRef = useRef(false);
+	const sustainedNotesRef = useRef<Set<number>>(new Set());
 
 	useEffect(() => {
 		const vol = new Tone.Volume(0).toDestination();
@@ -94,10 +96,31 @@ export function useAudioEngine() {
 	const noteOff = useCallback((midi: number) => {
 		if (!samplerRef.current || !loadedRef.current) return;
 
+		// If sustain pedal is held, don't release — just mark as sustained
+		if (sustainRef.current) {
+			sustainedNotesRef.current.add(midi);
+			return;
+		}
+
 		const noteName = activeNotesRef.current.get(midi);
 		if (noteName) {
 			samplerRef.current.triggerRelease(noteName, Tone.now());
 			activeNotesRef.current.delete(midi);
+		}
+	}, []);
+
+	const setSustain = useCallback((pressed: boolean) => {
+		sustainRef.current = pressed;
+		if (!pressed) {
+			// Release all sustained notes
+			for (const midi of sustainedNotesRef.current) {
+				const noteName = activeNotesRef.current.get(midi);
+				if (noteName && samplerRef.current) {
+					samplerRef.current.triggerRelease(noteName, Tone.now());
+					activeNotesRef.current.delete(midi);
+				}
+			}
+			sustainedNotesRef.current.clear();
 		}
 	}, []);
 
@@ -112,5 +135,5 @@ export function useAudioEngine() {
 		[ensureContext],
 	);
 
-	return { noteOn, noteOff, playNote, setVolume, isLoaded: () => loadedRef.current };
+	return { noteOn, noteOff, playNote, setVolume, setSustain, isLoaded: () => loadedRef.current };
 }

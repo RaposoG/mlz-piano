@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { MidiFile } from '../types/midi';
+import type { MidiFile, LearningMode, AppView } from '../types/midi';
 import './Toolbar.css';
 
 interface ToolbarProps {
@@ -12,9 +12,13 @@ interface ToolbarProps {
 	onSeek: (time: number) => void;
 	onRewind: () => void;
 	isRecording: boolean;
+	onBack: () => void;
+	onLoadFile: () => void;
+	currentView: AppView;
+	learningMode: LearningMode;
 }
 
-const Toolbar = memo(function Toolbar({ midiFile, isPlaying, currentTime, onPlay, onPause, onStop, onSeek, onRewind, isRecording }: ToolbarProps) {
+const Toolbar = memo(function Toolbar({ midiFile, isPlaying, currentTime, onPlay, onPause, onStop, onSeek, onRewind, isRecording, onBack, onLoadFile, currentView, learningMode }: ToolbarProps) {
 	const formatTime = (seconds: number) => {
 		const m = Math.floor(seconds / 60);
 		const s = Math.floor(seconds % 60);
@@ -23,8 +27,17 @@ const Toolbar = memo(function Toolbar({ midiFile, isPlaying, currentTime, onPlay
 
 	return (
 		<div className="toolbar">
-			{/* Left spacer for sidebar toggle */}
-			<div className="toolbar-spacer" />
+			<button className="toolbar-back" onClick={onBack} title="Menu">
+				<svg width="18" height="18" viewBox="0 0 18 18">
+					<path d="M12 3L5 9l7 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+				</svg>
+			</button>
+
+			<div className="toolbar-mode-badge" data-mode={currentView}>
+				{currentView === 'learning' ? '🎓' : '🎹'}
+				<span>{currentView === 'learning' ? 'Aprendizado' : 'Livre'}</span>
+				{learningMode === 'wait' && currentView === 'learning' && <span className="mode-wait-tag">Esperar</span>}
+			</div>
 
 			{midiFile ? (
 				<div className="toolbar-center">
@@ -66,7 +79,12 @@ const Toolbar = memo(function Toolbar({ midiFile, isPlaying, currentTime, onPlay
 				</div>
 			) : (
 				<div className="toolbar-center">
-					<span className="no-file-hint">Abra um arquivo MIDI no menu lateral</span>
+					<button className="open-file-btn" onClick={onLoadFile}>
+						<svg width="16" height="16" viewBox="0 0 16 16">
+							<path d="M2 4.5C2 3.67 2.67 3 3.5 3h3l1.5 1.5h5c.83 0 1.5.67 1.5 1.5V12c0 .83-.67 1.5-1.5 1.5h-10C2.67 13.5 2 12.83 2 12V4.5z" stroke="currentColor" strokeWidth="1.3" fill="none" />
+						</svg>
+						Abrir MIDI
+					</button>
 				</div>
 			)}
 
