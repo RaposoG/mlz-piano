@@ -18,21 +18,23 @@
 
 Baixe a versão mais recente para seu sistema operacional na página de [Releases](https://github.com/RaposoG/mlz-piano/releases):
 
-| Plataforma | Formato |
-|---|---|
-| Windows | `.msi` / `.exe` |
-| macOS (Apple Silicon) | `.dmg` |
-| macOS (Intel) | `.dmg` |
-| Linux | `.deb` / `.AppImage` |
+| Plataforma            | Formato              |
+| --------------------- | -------------------- |
+| Windows               | `.msi` / `.exe`      |
+| macOS (Apple Silicon) | `.dmg`               |
+| macOS (Intel)         | `.dmg`               |
+| Linux                 | `.deb` / `.AppImage` |
 
 ## Features
 
 ### 🎹 Piano de 88 Teclas
+
 - Piano completo de A0 a C8 com samples reais (Salamander Grand Piano)
 - Toque com mouse ou com qualquer teclado/piano MIDI conectado via USB
 - Suporte a velocity (intensidade da tecla) e pedal de sustain (CC#64)
 
 ### 🎵 Reprodução de Arquivos MIDI
+
 - Carregue arquivos `.mid` / `.midi` do seu computador
 - Visualização de notas caindo (estilo Synthesia) com cores por trilha
 - Controles de transporte: play, pause, stop, rewind, seek
@@ -40,34 +42,38 @@ Baixe a versão mais recente para seu sistema operacional na página de [Release
 - Gerenciamento de trilhas: ative/desative trilhas individualmente
 
 ### 📚 Biblioteca MIDI
+
 - Escaneia automaticamente Downloads, Música, Documentos e Desktop
 - Busca em tempo real por nome ou pasta
 - Agrupamento por diretório com contagem de arquivos
 
 ### 🎓 Modo Aprendizado
+
 - **Esperar**: A reprodução pausa até você tocar a nota correta no seu piano MIDI
 - Ideal para praticar músicas no seu próprio ritmo
 
 ### ⏺ Gravação
+
 - Grave tudo o que você toca (MIDI input ou mouse)
 - Exporte como arquivo `.mid` com um clique
 - Indicador visual "REC" com duração em tempo real
 
 ### 🔌 Suporte MIDI Completo
+
 - Detecção automática de dispositivos MIDI conectados
 - Reconexão e atualização de dispositivos em tempo real
 - Suporte a Note On, Note Off, Control Change (sustain pedal)
 
 ## Tech Stack
 
-| Camada | Tecnologia |
-|---|---|
-| Desktop | [Tauri 2](https://tauri.app/) (Rust) |
-| Frontend | [React 19](https://react.dev/) + TypeScript |
-| Build | [Vite 7](https://vite.dev/) |
-| Áudio | [Tone.js 15](https://tonejs.github.io/) |
-| MIDI Parser | [@tonejs/midi](https://github.com/Tonejs/Midi) |
-| Package Manager | [Bun](https://bun.sh/) |
+| Camada          | Tecnologia                                     |
+| --------------- | ---------------------------------------------- |
+| Desktop         | [Tauri 2](https://tauri.app/) (Rust)           |
+| Frontend        | [React 19](https://react.dev/) + TypeScript    |
+| Build           | [Vite 7](https://vite.dev/)                    |
+| Áudio           | [Tone.js 15](https://tonejs.github.io/)        |
+| MIDI Parser     | [@tonejs/midi](https://github.com/Tonejs/Midi) |
+| Package Manager | [Bun](https://bun.sh/)                         |
 
 ## Desenvolvimento
 
@@ -106,6 +112,7 @@ Contribuições são bem-vindas! Este é um projeto open-source e qualquer pesso
 ## Roadmap
 
 ### Implementado
+
 - [x] Piano de 88 teclas com samples reais
 - [x] Entrada MIDI com detecção automática de dispositivos
 - [x] Pedal de sustain (CC#64)
@@ -118,6 +125,7 @@ Contribuições são bem-vindas! Este é um projeto open-source e qualquer pesso
 - [x] CI/CD com releases automáticas (Windows, macOS, Linux)
 
 ### Futuro
+
 - [ ] Modo prática (sem pausa, feedback visual de acertos/erros)
 - [ ] Teclado do computador como entrada (QWERTY → notas)
 - [ ] Estatísticas de prática (precisão, tempo, progresso)
