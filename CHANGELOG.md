@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/RaposoG/mlz-piano/compare/mlz-piano-v0.3.0...mlz-piano-v0.4.0) (2026-03-28)
+
+
+### Features
+
+* **main:** add live note tracking and update UI for free mode ([7d43b4d](https://github.com/RaposoG/mlz-piano/commit/7d43b4de948a6e00cba7e789a7ecf7c9a82b69f9))
+
 ## [0.3.0](https://github.com/RaposoG/mlz-piano/compare/mlz-piano-v0.2.0...mlz-piano-v0.3.0) (2026-03-28)
 
 
