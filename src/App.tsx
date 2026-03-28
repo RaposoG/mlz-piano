@@ -11,7 +11,7 @@ import { useAudioEngine } from './hooks/useAudioEngine';
 import { useMidiInput } from './hooks/useMidiInput';
 import { useRecording } from './hooks/useRecording';
 import { parseMidiFile } from './utils/midiParser';
-import type { MidiFile, MidiNote, ActiveNote, LearningMode, AppView } from './types/midi';
+import type { MidiFile, MidiNote, ActiveNote, LearningMode, AppView, LiveNote } from './types/midi';
 import './App.css';
 
 function App() {
@@ -24,6 +24,7 @@ function App() {
 	const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
 	const [learningMode, setLearningMode] = useState<LearningMode>('off');
 	const [trackStates, setTrackStates] = useState<{ name: string; enabled: boolean }[]>([]);
+	const [liveNotes, setLiveNotes] = useState<LiveNote[]>([]);
 
 	const { noteOn, noteOff, playNote, setVolume: setAudioVolume, setSustain } = useAudioEngine();
 	const { isRecording, recordingDuration, startRecording, stopRecording, recordNoteOn, recordNoteOff, exportMidi } = useRecording();
@@ -42,8 +43,11 @@ function App() {
 	const learningModeRef = useRef<LearningMode>('off');
 	const enabledTracksRef = useRef<Set<number>>(new Set());
 	const waitingForNotesRef = useRef<Set<number>>(new Set());
+	const currentViewRef = useRef<AppView>('menu');
+	const livePressingRef = useRef<Map<number, number>>(new Map());
 
 	currentTimeRef.current = currentTime;
+	currentViewRef.current = currentView;
 	isPlayingRef.current = isPlaying;
 	midiFileRef.current = midiFile;
 	playbackSpeedRef.current = playbackSpeed;
@@ -67,11 +71,30 @@ function App() {
 		return midiFile.allNotes.filter((n) => enabledTracksRef.current.has(n.track));
 	}, [midiFile, trackStates]);
 
+	// --- Live note tracking (free mode trail) ---
+	const addLiveNote = useCallback((midi: number, velocity: number) => {
+		if (currentViewRef.current !== 'free') return;
+		const startTime = performance.now() / 1000;
+		livePressingRef.current.set(midi, startTime);
+		setLiveNotes((prev) => {
+			const updated = prev.map((n) => (n.midi === midi && n.duration === 0 ? { ...n, duration: startTime - n.startTime } : n));
+			return [...updated.filter((n) => n.startTime > startTime - 10), { midi, velocity, startTime, duration: 0 }];
+		});
+	}, []);
+
+	const finalizeLiveNote = useCallback((midi: number) => {
+		if (currentViewRef.current !== 'free') return;
+		const now = performance.now() / 1000;
+		livePressingRef.current.delete(midi);
+		setLiveNotes((prev) => prev.map((n) => (n.midi === midi && n.duration === 0 ? { ...n, duration: now - n.startTime } : n)).filter((n) => n.startTime > now - 10));
+	}, []);
+
 	// --- MIDI input handlers ---
 	const handleMidiNoteOn = useCallback(
 		(midi: number, velocity: number) => {
 			noteOn(midi, velocity);
 			recordNoteOn(midi, velocity);
+			addLiveNote(midi, velocity);
 			setActiveNotes((prev) => {
 				const next = new Map(prev);
 				next.set(midi, { midi, velocity, source: 'midi-input' });
@@ -86,20 +109,21 @@ function App() {
 				}
 			}
 		},
-		[noteOn, recordNoteOn],
+		[noteOn, recordNoteOn, addLiveNote],
 	);
 
 	const handleMidiNoteOff = useCallback(
 		(midi: number) => {
 			noteOff(midi);
 			recordNoteOff(midi);
+			finalizeLiveNote(midi);
 			setActiveNotes((prev) => {
 				const next = new Map(prev);
 				if (next.get(midi)?.source === 'midi-input') next.delete(midi);
 				return next;
 			});
 		},
-		[noteOff, recordNoteOff],
+		[noteOff, recordNoteOff, finalizeLiveNote],
 	);
 
 	const handleSustain = useCallback(
@@ -120,26 +144,28 @@ function App() {
 		(midi: number) => {
 			noteOn(midi, 0.7);
 			recordNoteOn(midi, 0.7);
+			addLiveNote(midi, 0.7);
 			setActiveNotes((prev) => {
 				const next = new Map(prev);
 				next.set(midi, { midi, velocity: 0.7, source: 'mouse' });
 				return next;
 			});
 		},
-		[noteOn, recordNoteOn],
+		[noteOn, recordNoteOn, addLiveNote],
 	);
 
 	const handlePianoNoteOff = useCallback(
 		(midi: number) => {
 			noteOff(midi);
 			recordNoteOff(midi);
+			finalizeLiveNote(midi);
 			setActiveNotes((prev) => {
 				const next = new Map(prev);
 				if (next.get(midi)?.source === 'mouse') next.delete(midi);
 				return next;
 			});
 		},
-		[noteOff, recordNoteOff],
+		[noteOff, recordNoteOff, finalizeLiveNote],
 	);
 
 	// --- File loading ---
@@ -192,7 +218,7 @@ function App() {
 						.pop()
 						?.replace(/\.mid[i]?$/i, '') || 'Unknown';
 				const parsed: MidiFile = { name, duration: midi.duration, bpm: midi.header.tempos[0]?.bpm ?? 120, tracks, allNotes };
-				loadParsedMidi(parsed, 'free');
+				loadParsedMidi(parsed, 'learning');
 			} catch (err) {
 				console.error('Failed to load MIDI from path:', err);
 			}
@@ -319,6 +345,18 @@ function App() {
 
 	// --- Navigation ---
 	const handleNavigate = useCallback((view: AppView) => {
+		// Reset all playback/file state when changing views
+		setMidiFile(null);
+		setIsPlaying(false);
+		setCurrentTime(0);
+		cancelAnimationFrame(playbackRef.current.animFrame);
+		playbackRef.current.activeFileNotes = new Set();
+		waitingForNotesRef.current.clear();
+		setActiveNotes(new Map());
+		setTrackStates([]);
+		setLiveNotes([]);
+		livePressingRef.current.clear();
+
 		if (view === 'learning') {
 			setLearningMode('wait');
 		} else if (view === 'free') {
@@ -329,6 +367,11 @@ function App() {
 
 	const handleBackToMenu = useCallback(() => {
 		handleStop();
+		setMidiFile(null);
+		setTrackStates([]);
+		setLiveNotes([]);
+		livePressingRef.current.clear();
+		setActiveNotes(new Map());
 		setCurrentView('menu');
 	}, [handleStop]);
 
@@ -383,13 +426,15 @@ function App() {
 		<div className="app">
 			<Toolbar midiFile={midiFile} isPlaying={isPlaying} currentTime={currentTime} onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onSeek={handleSeek} onRewind={handleRewind} isRecording={isRecording} onBack={handleBackToMenu} onLoadFile={handleLoadFile} currentView={currentView} learningMode={learningMode} />
 			<div className="falling-notes-area">
-				{midiFile ? (
+				{currentView === 'free' ? (
+					<FallingNotes notes={[]} currentTime={0} isPlaying={false} liveNotes={liveNotes} />
+				) : midiFile ? (
 					<FallingNotes notes={filteredNotes} currentTime={currentTime} isPlaying={isPlaying} />
 				) : (
 					<div className="empty-state">
 						<p className="empty-icon">🎹</p>
-						<p className="empty-title">{currentView === 'learning' ? 'Modo Aprendizado' : 'Modo Livre'}</p>
-						<p className="subtitle">{currentView === 'learning' ? 'Abra um arquivo MIDI para começar a aprender' : 'Toque livremente ou abra um arquivo MIDI'}</p>
+						<p className="empty-title">Modo Aprendizado</p>
+						<p className="subtitle">Abra um arquivo MIDI para começar a aprender</p>
 					</div>
 				)}
 			</div>

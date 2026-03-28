@@ -77,6 +77,10 @@ const Toolbar = memo(function Toolbar({ midiFile, isPlaying, currentTime, onPlay
 						<span className="song-bpm">{Math.round(midiFile.bpm)} BPM</span>
 					</div>
 				</div>
+			) : currentView === 'free' ? (
+				<div className="toolbar-center">
+					<span className="free-mode-label">Toque livremente</span>
+				</div>
 			) : (
 				<div className="toolbar-center">
 					<button className="open-file-btn" onClick={onLoadFile}>

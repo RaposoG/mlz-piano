@@ -27,6 +27,13 @@ export interface ActiveNote {
 	source: 'midi-input' | 'file' | 'mouse';
 }
 
+export interface LiveNote {
+	midi: number;
+	velocity: number;
+	startTime: number; // performance.now() / 1000
+	duration: number; // 0 = still held
+}
+
 export interface PianoKey {
 	midi: number;
 	note: string;

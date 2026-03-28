@@ -1,5 +1,5 @@
 import { useRef, useEffect, memo } from 'react';
-import type { MidiNote } from '../types/midi';
+import type { MidiNote, LiveNote } from '../types/midi';
 import { PIANO_START, PIANO_END, isBlackKey } from '../types/midi';
 
 interface FallingNotesProps {
@@ -8,22 +8,32 @@ interface FallingNotesProps {
 	isPlaying: boolean;
 	pixelsPerSecond?: number;
 	visibleSeconds?: number;
+	liveNotes?: LiveNote[];
 }
 
 const TRACK_COLORS = ['#4a9eff', '#ff6b6b', '#51cf66', '#ffd43b', '#cc5de8', '#ff922b', '#22b8cf', '#ff6b9d'];
+
+const OCTAVE_COLORS = ['#ff6b9d', '#cc5de8', '#7c3aed', '#4a9eff', '#22b8cf', '#51cf66', '#ffd43b', '#ff922b', '#ff6b6b'];
+
+function getLiveNoteColor(midi: number): string {
+	const octave = Math.floor(midi / 12) - 1;
+	return OCTAVE_COLORS[Math.max(0, Math.min(octave, OCTAVE_COLORS.length - 1))];
+}
 
 function getNoteColor(track: number, _isBlack: boolean): string {
 	return TRACK_COLORS[track % TRACK_COLORS.length];
 }
 
-const FallingNotes = memo(function FallingNotes({ notes, currentTime, isPlaying: _isPlaying, pixelsPerSecond = 200, visibleSeconds = 4 }: FallingNotesProps) {
+const FallingNotes = memo(function FallingNotes({ notes, currentTime, isPlaying: _isPlaying, pixelsPerSecond = 200, visibleSeconds = 4, liveNotes }: FallingNotesProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const animFrameRef = useRef<number>(0);
 	const notesRef = useRef(notes);
 	const timeRef = useRef(currentTime);
+	const liveNotesRef = useRef(liveNotes);
 
 	notesRef.current = notes;
 	timeRef.current = currentTime;
+	liveNotesRef.current = liveNotes;
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -124,6 +134,51 @@ const FallingNotes = memo(function FallingNotes({ notes, currentTime, isPlaying:
 
 				ctx.shadowColor = 'transparent';
 				ctx.shadowBlur = 0;
+			}
+
+			// Draw live notes (upward trail from piano)
+			const currentLiveNotes = liveNotesRef.current;
+			if (currentLiveNotes && currentLiveNotes.length > 0) {
+				const now = performance.now() / 1000;
+				const maxAge = height / pixelsPerSecond;
+
+				for (const note of currentLiveNotes) {
+					const noteEndTime = note.duration > 0 ? note.startTime + note.duration : now;
+					const ageStart = now - note.startTime;
+					const ageEnd = now - noteEndTime;
+
+					if (ageStart > maxAge + 1) continue;
+
+					const lx = getNoteX(note.midi, whiteKeyPositions, whiteKeyWidth);
+					const lnoteWidth = getNoteWidth(note.midi, whiteKeyWidth);
+
+					const lyTop = height - ageStart * pixelsPerSecond;
+					const lyBottom = height - ageEnd * pixelsPerSecond;
+					const lnoteHeight = Math.max(lyBottom - lyTop, 4);
+
+					if (lyBottom < 0) continue;
+
+					const lcolor = getLiveNoteColor(note.midi);
+					const lActive = note.duration === 0;
+
+					if (lActive) {
+						ctx.shadowColor = lcolor;
+						ctx.shadowBlur = 15;
+					}
+
+					const lradius = 3;
+					ctx.fillStyle = lActive ? lcolor : adjustAlpha(lcolor, 0.7);
+					ctx.beginPath();
+					ctx.roundRect(lx + 1, lyTop, lnoteWidth - 2, lnoteHeight, lradius);
+					ctx.fill();
+
+					ctx.strokeStyle = lActive ? '#fff' : adjustAlpha(lcolor, 0.3);
+					ctx.lineWidth = lActive ? 2 : 1;
+					ctx.stroke();
+
+					ctx.shadowColor = 'transparent';
+					ctx.shadowBlur = 0;
+				}
 			}
 
 			animFrameRef.current = requestAnimationFrame(draw);

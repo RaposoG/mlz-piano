@@ -85,6 +85,12 @@
 	color: #fff;
 }
 
+.free-mode-label {
+	color: #64748b;
+	font-size: 13px;
+	font-weight: 500;
+}
+
 .toolbar-center {
 	flex: 1;
 	display: flex;
