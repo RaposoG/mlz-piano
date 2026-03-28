@@ -1,6 +1,6 @@
 [package]
 name = "mlz-piano"
-version = "0.2.0" # x-release-please-version
+version = "0.3.0" # x-release-please-version
 description = "MLZ Piano - Open-source digital piano with Synthesia-like visualization"
 authors = ["RaposoG"]
 edition = "2021"
